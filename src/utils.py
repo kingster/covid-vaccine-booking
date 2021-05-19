@@ -1,4 +1,5 @@
 import json
+import traceback
 from hashlib import sha256
 from collections import Counter
 from inputimeout import inputimeout, TimeoutOccurred
@@ -16,6 +17,8 @@ OTP_PUBLIC_URL = "https://cdn-api.co-vin.in/api/v2/auth/public/generateOTP"
 OTP_PRO_URL = "https://cdn-api.co-vin.in/api/v2/auth/generateMobileOTP"
 
 WARNING_BEEP_DURATION = (1000, 5000)
+TOKEN_FILE="token_{}.txt"
+
 
 try:
     import winsound
@@ -43,34 +46,49 @@ else:
 
 def viable_options(resp, minimum_slots, min_age_booking, fee_type, dose_num):
     options = []
-    if len(resp["centers"]) >= 0:
-        for center in resp["centers"]:
-            for session in center["sessions"]:
-                # Cowin uses slot number for display post login, but checks available_capacity before booking appointment is allowed
-                available_capacity = min(session[f'available_capacity_dose{dose_num}'], session['available_capacity'])
-                if (
-                        (available_capacity >= minimum_slots)
-                        and (session["min_age_limit"] <= min_age_booking)
-                        and (center["fee_type"] in fee_type)
-                ):
-                    out = {
-                        "name": center["name"],
-                        "district": center["district_name"],
-                        "pincode": center["pincode"],
-                        "center_id": center["center_id"],
-                        "vaccine": session["vaccine"],
-                        "fee_type": center["fee_type"],
-                        "available": available_capacity,
-                        "date": session["date"],
-                        "slots": session["slots"],
-                        "session_id": session["session_id"],
-                    }
-                    options.append(out)
+    sessions = []
 
-                else:
-                    pass
-    else:
-        pass
+    if 'centers' in resp:        
+        if len(resp["centers"]) >= 0:
+            for center in resp["centers"]:
+                for session in center["sessions"]:
+                    session["name"] = center["name"]
+                    session["district"] = center["district_name"]
+                    session["district_name"] = center["district_name"]
+                    session["pincode"] =  center["pincode"]
+                    session["center_id"] =  center["center_id"]
+                    session["fee_type"] =  center["fee_type"]
+                    sessions.append(session)
+
+    if 'sessions' in resp:        
+        if len(resp["sessions"]) >= 0:
+            for session in resp["sessions"]:
+                sessions.append(session)
+    
+    for session in sessions:
+        # Cowin uses slot number for display post login, but checks available_capacity before booking appointment is allowed
+        available_capacity = min(session[f'available_capacity_dose{dose_num}'], session['available_capacity'])
+        if (
+            (available_capacity >= minimum_slots)
+            and (session["min_age_limit"] <= min_age_booking)
+            and (session["fee_type"] in fee_type)
+        ):
+            out = {
+                "name": session["name"],
+                "district": session["district_name"],
+                "pincode": session["pincode"],
+                "center_id": session["center_id"],
+                "vaccine": session["vaccine"],
+                "fee_type": session["fee_type"],
+                "fee": session.get("fee", "0"),
+                "available": available_capacity,
+                "date": session["date"],
+                "slots": session["slots"],
+                "session_id": session["session_id"],
+            }
+            options.append(out)
+        else:
+            pass
 
     return options
 
@@ -385,6 +403,8 @@ def find_by_district(
         return options
 
     except Exception as e:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
         print(str(e))
         beep(WARNING_BEEP_DURATION[0], WARNING_BEEP_DURATION[1])
 
@@ -450,6 +470,8 @@ def check_calendar_by_district(
         return options
 
     except Exception as e:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
         print(str(e))
         beep(WARNING_BEEP_DURATION[0], WARNING_BEEP_DURATION[1])
 
@@ -515,6 +537,8 @@ def check_calendar_by_pincode(
         return options
 
     except Exception as e:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
         print(str(e))
         beep(WARNING_BEEP_DURATION[0], WARNING_BEEP_DURATION[1])
 
@@ -601,6 +625,8 @@ def book_appointment(request_header, details, mobile, generate_captcha_pref):
                 return 2
 
     except Exception as e:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
         print(str(e))
         beep(WARNING_BEEP_DURATION[0], WARNING_BEEP_DURATION[1])
 
@@ -1114,6 +1140,10 @@ def generate_token_OTP(mobile, request_header):
         return None
 
     print(f"Token Generated: {token}")
+    file1 = open(TOKEN_FILE.format(mobile),"w")
+    file1.write(token)
+    file1.close()
+
     return token
 
 
@@ -1175,5 +1205,7 @@ def generate_token_OTP_manual(mobile, request_header):
                     sys.exit()
 
         except Exception as e:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
             print(str(e))
 

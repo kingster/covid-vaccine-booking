@@ -2,10 +2,11 @@
 
 import copy
 import time
+import json
 from types import SimpleNamespace
 import requests, sys, argparse, os, datetime
 import jwt
-from utils import generate_token_OTP, generate_token_OTP_manual, check_and_book, beep, BENEFICIARIES_URL, WARNING_BEEP_DURATION, \
+from utils import generate_token_OTP, generate_token_OTP_manual, check_and_book, beep, BENEFICIARIES_URL, WARNING_BEEP_DURATION, TOKEN_FILE, \
     display_info_dict, save_user_info, collect_user_details, get_saved_user_info, confirm_and_proceed, get_dose_num, display_table, fetch_beneficiaries
 
 def is_token_valid(token):
@@ -36,6 +37,17 @@ def main():
         }
 
         token = None
+        try:
+            file1=open(TOKEN_FILE.format(mobile),"r+", errors = 'ignore') 
+            token=file1.read()
+            if not is_token_valid(token):
+                token = None
+            else:
+                print("Found existing token: " + token)
+
+        except IOError:
+            print("Will create new token...")
+        
         if args.token:
             token = args.token
         else:
@@ -108,8 +120,9 @@ def main():
                 beep(WARNING_BEEP_DURATION[0], WARNING_BEEP_DURATION[1])
                 return
         else:
-            print("WARNING: Failed to check if any beneficiary has active appointments. Please cancel before using this script")
-            input("Press any key to continue execution...")
+            print("WARNING: Failed to check if any beneficiary has active appointments. Token Invalid")
+            sys.exit(1)
+
 
         info = SimpleNamespace(**collected_details)
 
