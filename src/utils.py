@@ -9,6 +9,7 @@ import uuid
 BOOKING_URL = "https://cdn-api.co-vin.in/api/v2/appointment/schedule"
 BENEFICIARIES_URL = "https://cdn-api.co-vin.in/api/v2/appointment/beneficiaries"
 CALENDAR_URL_DISTRICT = "https://cdn-api.co-vin.in/api/v2/appointment/sessions/calendarByDistrict?district_id={0}&date={1}"
+FIND_URL_DISTRICT = "https://cdn-api.co-vin.in/api/v2/appointment/sessions/findByDistrict?district_id={0}&date={1}"
 CALENDAR_URL_PINCODE = "https://cdn-api.co-vin.in/api/v2/appointment/sessions/calendarByPin?pincode={0}&date={1}"
 CAPTCHA_URL = "https://cdn-api.co-vin.in/api/v2/auth/getRecaptcha"
 OTP_PUBLIC_URL = "https://cdn-api.co-vin.in/api/v2/auth/public/generateOTP"
@@ -294,6 +295,19 @@ def collect_user_details(request_header):
 
     return collected_details
 
+def filter_session_by_age(resp, min_age_booking):
+
+    if min_age_booking >= 45:
+        center_age_filter = 45
+    else:
+        center_age_filter = 18
+
+    if "sessions" in resp:
+        for session in list(resp["sessions"]):
+            if session['min_age_limit'] != center_age_filter:
+                resp["sessions"].remove(session)
+
+    return resp    
 
 def filter_centers_by_age(resp, min_age_booking):
     if min_age_booking >= 45:
@@ -310,6 +324,69 @@ def filter_centers_by_age(resp, min_age_booking):
                         resp["centers"].remove(center)
 
     return resp
+
+def find_by_district(
+    request_header,
+    vaccine_type,
+    location_dtls,
+    start_date,
+    minimum_slots,
+    min_age_booking,
+    fee_type,
+    dose_num
+):
+    """
+    This function
+        1. Takes details required to check vaccination calendar
+        2. Filters result by minimum number of slots available
+        3. Returns False if token is invalid
+        4. Returns list of vaccination centers & slots if available
+    """
+    try:
+        print(
+            "==================================================================================="
+        )
+        today = datetime.datetime.today()
+        base_url = FIND_URL_DISTRICT
+
+        if vaccine_type:
+            base_url += f"&vaccine={vaccine_type}"
+
+        options = []
+        for location in location_dtls:
+            resp = requests.get(
+                base_url.format(location["district_id"], start_date),
+                headers=request_header,
+            )
+
+            if resp.status_code == 401:
+                print("TOKEN INVALID")
+                return False
+
+            elif resp.status_code == 200:
+                resp = resp.json()
+
+                resp = filter_session_by_age(resp, min_age_booking)
+                if "sessions" in resp:
+                    print(
+                        f"Sessions available in {location['district_name']} from {start_date} as of {today.strftime('%Y-%m-%d %H:%M:%S')}: {len(resp['sessions'])}"
+                    )
+                    options += viable_options(
+                        resp, minimum_slots, min_age_booking, fee_type, dose_num
+                    )
+
+            else:
+                pass
+
+        for location in location_dtls:
+            if location["district_name"] in [option["district"] for option in options]:
+                for _ in range(2):
+                    beep(location["alert_freq"], 150)
+        return options
+
+    except Exception as e:
+        print(str(e))
+        beep(WARNING_BEEP_DURATION[0], WARNING_BEEP_DURATION[1])
 
 
 def check_calendar_by_district(
@@ -562,7 +639,18 @@ def check_and_book(
         else:
             pass
 
-        if search_option == 2:
+        if search_option == 3:
+            options = find_by_district(
+                request_header,
+                vaccine_type,
+                location_dtls,
+                start_date,
+                minimum_slots,
+                min_age_booking,
+                fee_type,
+                dose_num
+            )
+        elif search_option == 2:
             options = check_calendar_by_district(
                 request_header,
                 vaccine_type,
