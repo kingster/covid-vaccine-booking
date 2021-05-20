@@ -8,6 +8,7 @@ from captcha import captcha_builder_manual, captcha_builder_auto
 import uuid
 
 BOOKING_URL = "https://cdn-api.co-vin.in/api/v2/appointment/schedule"
+BOOKING_RE_URL = "https://cdn-api.co-vin.in/api/v2/appointment/reschedule"
 BENEFICIARIES_URL = "https://cdn-api.co-vin.in/api/v2/appointment/beneficiaries"
 CALENDAR_URL_DISTRICT = "https://cdn-api.co-vin.in/api/v2/appointment/sessions/calendarByDistrict?district_id={0}&date={1}"
 FIND_URL_DISTRICT = "https://cdn-api.co-vin.in/api/v2/appointment/sessions/findByDistrict?district_id={0}&date={1}"
@@ -387,7 +388,7 @@ def find_by_district(
                 resp = filter_session_by_age(resp, min_age_booking)
                 if "sessions" in resp:
                     print(
-                        f"Sessions available in {location['district_name']} from {start_date} as of {today.strftime('%Y-%m-%d %H:%M:%S')}: {len(resp['sessions'])}"
+                        f"Sessions available in {location['district_name']} on {start_date} as of {today.strftime('%Y-%m-%d %H:%M:%S')}: {len(resp['sessions'])}"
                     )
                     options += viable_options(
                         resp, minimum_slots, min_age_booking, fee_type, dose_num
@@ -556,7 +557,7 @@ def generate_captcha(request_header, captcha_automation):
         return captcha_builder_auto(resp.json())
 
 
-def book_appointment(request_header, details, mobile, generate_captcha_pref):
+def book_appointment(request_header, details, mobile, generate_captcha_pref, mode="schedule"):
     """
     This function
         1. Takes details in json format
@@ -578,7 +579,9 @@ def book_appointment(request_header, details, mobile, generate_captcha_pref):
                 "================================= ATTEMPTING BOOKING =================================================="
             )
 
-            resp = requests.post(BOOKING_URL, headers=request_header, json=details)
+            url = BOOKING_RE_URL if mode == "reschedule"  else  BOOKING_URL
+            print(f"Booking URL: {url}, mode {mode}")
+            resp = requests.post(url, headers=request_header, json=details)
             print(f"Booking Response Code: {resp.status_code}")
             print(f"Booking Response : {resp.text}")
 
@@ -586,7 +589,7 @@ def book_appointment(request_header, details, mobile, generate_captcha_pref):
                 print("TOKEN INVALID")
                 return 0
 
-            elif resp.status_code == 200:
+            elif resp.status_code == 200 or resp.status_code == 204:
                 beep(WARNING_BEEP_DURATION[0], WARNING_BEEP_DURATION[1])
                 print(
                     "##############    BOOKED!  ############################    BOOKED!  ##############"
@@ -794,6 +797,7 @@ def check_and_book(
                         print(f"============> Trying Choice # {i} Center # {center_id}, Slot #{selected_slot}")
 
                         dose_num = 2 if [beneficiary["status"] for beneficiary in beneficiary_dtls][0] == "Partially Vaccinated" else 1
+                        book_mode = "reschedule" if 'appointment_id' in beneficiary_dtls[0] else "schedule"
                         new_req = {
                             "beneficiaries": [
                                 beneficiary["bref_id"] for beneficiary in beneficiary_dtls
@@ -803,8 +807,10 @@ def check_and_book(
                             "session_id": option["session_id"],
                             "slot": selected_slot,
                         }
+                        if book_mode == "reschedule" :
+                            new_req["appointment_id"] =  beneficiary_dtls[0]["appointment_id"]
                         print(f"Booking with info: {new_req}")
-                        booking_status = book_appointment(request_header, new_req, mobile, captcha_automation)
+                        booking_status = book_appointment(request_header, new_req, mobile, captcha_automation, book_mode)
                         # is token error ? If yes then break the loop by returning immediately
                         if booking_status == 0:
                             return False

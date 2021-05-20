@@ -21,10 +21,14 @@ def is_token_valid(token):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--token', help='Pass token directly')
+    parser.add_argument('--mobile', help='Mobile')
     args = parser.parse_args()
 
     filename = 'vaccine-booking-details-'
-    mobile = input("Enter the registered mobile number: ")
+    if args.mobile:
+        mobile = args.mobile
+    else:
+        mobile = input("Enter the registered mobile number: ")
     filename = filename + mobile + ".json"
     otp_pref = "n"
 
@@ -106,7 +110,9 @@ def main():
             for beneficiary in beneficiary_dtls:
                 expected_appointments = (1 if beneficiary['vaccination_status'] == "Partially Vaccinated" else 0)
                 if len(beneficiary['appointments']) > expected_appointments:
-                    data             = beneficiary['appointments'][expected_appointments]
+                    data = beneficiary['appointments'][expected_appointments]
+                    user = next((x for x in collected_details["beneficiary_dtls"] if x["bref_id"] == beneficiary["beneficiary_reference_id"]), None)
+                    user["appointment_id"] = beneficiary['appointments'][expected_appointments]["appointment_id"]
                     beneficiary_data = {'name': data['name'],
                                         'state_name': data['state_name'],
                                         'dose': data['dose'],
@@ -115,10 +121,11 @@ def main():
                     active_appointments.append({"beneficiary": beneficiary['name'], **beneficiary_data})
 
             if active_appointments:
-                print("The following appointments are active! Please cancel them manually first to continue")
+                print("\n================================= WARNING =================================\n")
+                print("The following appointments are active! Please will automatically cancel existing appointments when booking.")
                 display_table(active_appointments)
-                beep(WARNING_BEEP_DURATION[0], WARNING_BEEP_DURATION[1])
-                return
+                input("Press any key to continue...")
+                # beep(WARNING_BEEP_DURATION[0], WARNING_BEEP_DURATION[1])
         else:
             print("WARNING: Failed to check if any beneficiary has active appointments. Token Invalid")
             sys.exit(1)
