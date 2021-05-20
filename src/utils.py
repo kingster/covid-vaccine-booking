@@ -663,10 +663,14 @@ def check_and_book(
             start_date = (
                     datetime.datetime.today() + datetime.timedelta(days=1)
             ).strftime("%d-%m-%Y")
+            start_date_2 = (
+                datetime.datetime.today() + datetime.timedelta(days=2)
+            ).strftime("%d-%m-%Y")
         elif isinstance(start_date, int) and start_date == 1:
             start_date = datetime.datetime.today().strftime("%d-%m-%Y")
-        else:
-            pass
+            start_date_2 = (
+                datetime.datetime.today() + datetime.timedelta(days=1)
+            ).strftime("%d-%m-%Y")
 
         if search_option == 3:
             options = find_by_district(
@@ -674,6 +678,16 @@ def check_and_book(
                 vaccine_type,
                 location_dtls,
                 start_date,
+                minimum_slots,
+                min_age_booking,
+                fee_type,
+                dose_num
+            )
+            options += find_by_district(
+                request_header,
+                vaccine_type,
+                location_dtls,
+                start_date_2,
                 minimum_slots,
                 min_age_booking,
                 fee_type,
@@ -703,6 +717,9 @@ def check_and_book(
             )
 
         if isinstance(options, bool):
+            return False
+        
+        if isinstance(options, int):
             return False
 
         options = sorted(
