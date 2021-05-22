@@ -6,6 +6,7 @@ from inputimeout import inputimeout, TimeoutOccurred
 import tabulate, copy, time, datetime, requests, sys, os, random
 from captcha import captcha_builder_manual, captcha_builder_auto
 import uuid
+from blank_inputimeout import blank_inputimeout, BlankTimeoutOccurred
 
 BOOKING_URL = "https://cdn-api.co-vin.in/api/v2/appointment/schedule"
 BOOKING_RE_URL = "https://cdn-api.co-vin.in/api/v2/appointment/reschedule"
@@ -743,10 +744,14 @@ def check_and_book(
             slots_available = True
         else:
             for i in range(refresh_freq, 0, -1):
-                msg = f"No viable options. Next update in {i} seconds.."
+                msg = f"No viable options. Press enter to refresh immediately. Next update in {i} seconds.."
                 print(msg, end="\r", flush=True)
                 sys.stdout.flush()
-                time.sleep(1)
+                try:
+                    blank_inputimeout(timeout=1)
+                    break
+                except BlankTimeoutOccurred:
+                    pass
             slots_available = False
             print(
                 "==================================================================================="
