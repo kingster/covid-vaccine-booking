@@ -3,6 +3,7 @@
 import copy
 import time
 import json
+import jwt
 from types import SimpleNamespace
 import requests, sys, argparse, os, datetime
 import jwt

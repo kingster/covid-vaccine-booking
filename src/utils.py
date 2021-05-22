@@ -362,9 +362,7 @@ def find_by_district(
         4. Returns list of vaccination centers & slots if available
     """
     try:
-        print(
-            "==================================================================================="
-        )
+        
         today = datetime.datetime.today()
         base_url = FIND_URL_DISTRICT
 
@@ -457,6 +455,7 @@ def check_calendar_by_district(
                     print(
                         f"Centers available in {location['district_name']} from {start_date} as of {today.strftime('%Y-%m-%d %H:%M:%S')}: {len(resp['centers'])}"
                     )
+
                     options += viable_options(
                         resp, minimum_slots, min_age_booking, fee_type, dose_num
                     )
@@ -749,6 +748,9 @@ def check_and_book(
                 sys.stdout.flush()
                 time.sleep(1)
             slots_available = False
+            print(
+                "==================================================================================="
+            )
 
     except TimeoutOccurred:
         time.sleep(1)
@@ -801,7 +803,9 @@ def check_and_book(
                 # Randomized slots selection is maximizing chances of booking
                 random.shuffle(all_slots_of_a_center) # in-place modification
 
-                for selected_slot in all_slots_of_a_center:
+                one_slot = [all_slots_of_a_center[0]] # most booking errors are for all slots fulled, so attempt one random slot only.
+                for selected_slot in one_slot:
+                # for selected_slot in all_slots_of_a_center:
                     # if have spent too much time in loop iteration then means we are looking at stale information about centers & slots.
                     # so we should re-calculate this information while ending this loop more aggressively.
                     current_epoch = int(time.time())
