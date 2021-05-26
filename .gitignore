@@ -132,6 +132,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+*.json
 captcha.*
 token_*
-vaccine-booking-details*
