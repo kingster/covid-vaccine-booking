@@ -688,7 +688,7 @@ def check_and_book(
                 datetime.datetime.today() + datetime.timedelta(days=1)
             ).strftime("%d-%m-%Y")
 
-        if search_option == 3:
+        if search_option == 4:
             options = find_by_district(
                 request_header,
                 vaccine_type,
@@ -709,6 +709,31 @@ def check_and_book(
                 fee_type,
                 dose_num
             )
+            
+        elif search_option == 3:
+            options = check_calendar_by_district(
+                request_header,
+                vaccine_type,
+                location_dtls,
+                start_date,
+                minimum_slots,
+                min_age_booking,
+                fee_type,
+                dose_num,
+                beep_required=False
+            )
+
+            if not isinstance(options, bool):
+                pincode_filtered_options = []
+                for option in options: 
+                    for location in pin_code_location_dtls:
+                        if int(location["pincode"]) == int(option["pincode"]):
+                            # ADD this filtered PIN code option
+                            pincode_filtered_options.append(option)
+                            for _ in range(2):
+                                beep(location["alert_freq"], 150)
+                options = pincode_filtered_options
+
         elif search_option == 2:
             options = check_calendar_by_district(
                 request_header,
